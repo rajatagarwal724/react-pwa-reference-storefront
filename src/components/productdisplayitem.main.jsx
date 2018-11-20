@@ -31,7 +31,7 @@ import {
 } from '../utils/Analytics';
 import imgPlaceholder from '../images/img-placeholder.png';
 import ProductRecommendationsDisplayMain from './productrecommendations.main';
-import cortexFetch from '../utils/Cortex';
+import { cortexFetch } from '../utils/Cortex';
 
 import './productdisplayitem.main.less';
 

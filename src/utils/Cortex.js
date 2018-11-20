@@ -24,7 +24,10 @@ import mockFetch from './Mock';
 
 const Config = require('Config');
 
-function cortexFetch(input, init) {
+export async function cortexFetchAsync() {
+}
+
+export function cortexFetch(input, init) {
   const requestInit = init;
 
   if (requestInit && requestInit.headers) {
@@ -49,5 +52,3 @@ function cortexFetch(input, init) {
       console.error(error.message);
     });
 }
-
-export default cortexFetch;

@@ -30,7 +30,7 @@ import {
   isAnalyticsConfigured, trackAddItemAnalytics, setRemoveAnalytics, sendRemoveFromCartAnalytics,
 } from '../utils/Analytics';
 import imgPlaceholder from '../images/img-placeholder.png';
-import cortexFetch from '../utils/Cortex';
+import { cortexFetch } from '../utils/Cortex';
 import './cart.lineitem.less';
 
 const Config = require('Config');

@@ -19,7 +19,7 @@
  *
  */
 
-import cortexFetch from './Cortex';
+import { cortexFetch } from './Cortex';
 
 const Config = require('Config');
 
