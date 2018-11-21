@@ -63,11 +63,18 @@ module.exports = {
       {
         test: /\.js$/,
         exclude: /node_modules/,
-        use: 'babel-loader',
-      }, {
+        loader: 'babel-loader',
+        options: {
+          plugins: ['transform-object-rest-spread']
+        },
+      },
+      {
         test: /\.jsx?$/,
         exclude: /node_modules/,
-        use: 'babel-loader',
+        loader: 'babel-loader',
+        options: {
+          plugins: ['transform-object-rest-spread']
+        },
       },
       {
         test: /\.(png|jp(e*)g|svg|gif|jp2)$/,

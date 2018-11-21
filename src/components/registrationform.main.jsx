@@ -23,12 +23,8 @@ import React from 'react';
 import ReactRouterPropTypes from 'react-router-prop-types';
 import intl from 'react-intl-universal';
 import { withRouter } from 'react-router';
-import {
-  login, loginRegistered, registerUser, getRegistrationForm,
-} from '../utils/AuthService';
+import { registerUser } from '../utils/AuthService';
 import './registrationform.main.less';
-
-const Config = require('Config');
 
 class RegistrationFormMain extends React.Component {
   static propTypes = {
@@ -43,7 +39,6 @@ class RegistrationFormMain extends React.Component {
       lastname: '',
       username: '',
       password: '',
-      failedLogin: false,
       failedRegistration: false,
       registrationErrors: '',
     };
@@ -52,12 +47,6 @@ class RegistrationFormMain extends React.Component {
     this.setUsername = this.setUsername.bind(this);
     this.setPassword = this.setPassword.bind(this);
     this.registerNewUser = this.registerNewUser.bind(this);
-  }
-
-  componentDidMount() {
-    login().then(() => {
-      getRegistrationForm();
-    });
   }
 
   setFirstName(event) {
@@ -76,58 +65,25 @@ class RegistrationFormMain extends React.Component {
     this.setState({ password: event.target.value });
   }
 
-  registerNewUser() {
+  async registerNewUser() {
     const {
       lastname, firstname, username, password,
     } = this.state;
     const { location, history } = this.props;
-    login().then(() => {
-      registerUser(lastname, firstname, username, password).then((res) => {
-        if (res.status === 201) {
-          this.setState({ failedRegistration: false });
-          if (localStorage.getItem(`${Config.cortexApi.scope}_oAuthRole`) === 'PUBLIC') {
-            loginRegistered(username, password).then((resStatus) => {
-              if (resStatus === 401) {
-                this.setState({ failedLogin: true });
-                let debugMessages = '';
-                res.json().then((json) => {
-                  for (let i = 0; i < json.messages.length; i++) {
-                    debugMessages = debugMessages.concat(`- ${json.messages[i]['debug-message']} \n `);
-                  }
-                }).then(() => this.setState({ registrationErrors: debugMessages }));
-              }
-              if (resStatus === 400) {
-                this.setState({ failedLogin: true });
-                let debugMessages = '';
-                res.json().then((json) => {
-                  for (let i = 0; i < json.messages.length; i++) {
-                    debugMessages = debugMessages.concat(`- ${json.messages[i]['debug-message']} \n `);
-                  }
-                }).then(() => this.setState({ registrationErrors: debugMessages }));
-              } else if (resStatus === 200) {
-                if (location.state && location.returnPage) {
-                  history.push(location.state.returnPage);
-                } else {
-                  history.push('/');
-                }
-              }
-            });
-          }
-        } else {
-          this.setState({ failedRegistration: true });
-          let debugMessages = '';
-          res.json().then((json) => {
-            for (let i = 0; i < json.messages.length; i++) {
-              debugMessages = debugMessages.concat(`- ${json.messages[i]['debug-message']} \n `);
-            }
-          }).then(() => this.setState({ registrationErrors: debugMessages }));
-        }
+
+    try {
+      await registerUser(lastname, firstname, username, password);
+      history.push(location.state.returnPage || '/');
+    } catch (err) {
+      this.setState({
+        failedRegistration: true,
+        registrationErrors: err.res.parsedJson.messages.map(m => m['debug-message']).join('\n'),
       });
-    });
+    }
   }
 
   render() {
-    const { failedRegistration, failedLogin, registrationErrors } = this.state;
+    const { failedRegistration, registrationErrors } = this.state;
     return (
       <div className="registration-container container">
         <h3>
@@ -135,7 +91,7 @@ class RegistrationFormMain extends React.Component {
         </h3>
 
         <div className="feedback-label registration-form-feedback-container feedback-display-linebreak" id="registration_form_feedback_container" data-region="registrationFeedbackMsgRegion">
-          {failedRegistration || failedLogin ? (registrationErrors) : ('')}
+          {failedRegistration ? registrationErrors : ''}
         </div>
 
         <div data-region="registrationFormRegion" style={{ display: 'block' }}>

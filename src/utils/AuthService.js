@@ -19,13 +19,12 @@
  *
  */
 
-import { cortexFetch } from './Cortex';
+import { cortexFetch, cortexFetchAsync } from './Cortex';
 
 const Config = require('Config');
 
 let userFormBody = [];
 let userFormBodyString = '';
-let newaccountform = '';
 
 function generateFormBody(userDetails) {
   Object.keys(userDetails).forEach((encodedKey) => {
@@ -74,113 +73,53 @@ export function login() {
   }));
 }
 
-export function loginRegistered(username, password) {
-  return new Promise(((resolve, reject) => {
-    if (localStorage.getItem(`${Config.cortexApi.scope}_oAuthToken`) != null) {
-      userFormBodyString = '';
-      userFormBody = [];
-      const registeredUserDetails = {
-        username,
-        password,
-        grant_type: 'password',
-        role: 'REGISTERED',
-        scope: Config.cortexApi.scope,
-      };
+export async function loginRegistered(username, password) {
+  const res = await cortexFetchAsync('/oauth2/tokens', {
+    method: 'post',
+    urlEncoded: true,
+    body: {
+      username,
+      password,
+      grant_type: 'password',
+      role: 'REGISTERED',
+      scope: Config.cortexApi.scope,
+    },
+  });
 
-      generateFormBody(registeredUserDetails);
+  localStorage.setItem(`${Config.cortexApi.scope}_oAuthRole`, res.parsedJson.role);
+  localStorage.setItem(`${Config.cortexApi.scope}_oAuthScope`, res.parsedJson.scope);
+  localStorage.setItem(`${Config.cortexApi.scope}_oAuthToken`, `Bearer ${res.parsedJson.access_token}`);
+  localStorage.setItem(`${Config.cortexApi.scope}_oAuthUserName`, username);
 
-      cortexFetch('/oauth2/tokens', {
-        method: 'post',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-          Authorization: localStorage.getItem(`${Config.cortexApi.scope}_oAuthToken`),
-        },
-        body: userFormBodyString,
-      }).then((res) => {
-        if (res.status === 401) {
-          resolve(401);
-        }
-        if (res.status === 400) {
-          resolve(400);
-        } else if (res.status === 200) {
-          return res.json();
-        }
-        return null;
-      }).then((res) => {
-        localStorage.setItem(`${Config.cortexApi.scope}_oAuthRole`, res.role);
-        localStorage.setItem(`${Config.cortexApi.scope}_oAuthScope`, res.scope);
-        localStorage.setItem(`${Config.cortexApi.scope}_oAuthToken`, `Bearer ${res.access_token}`);
-        localStorage.setItem(`${Config.cortexApi.scope}_oAuthUserName`, registeredUserDetails.username);
-        resolve(200);
-      }).catch((error) => {
-        // eslint-disable-next-line no-console
-        console.error(error.message);
-        reject(error);
-      });
-    } else {
-      resolve(userFormBodyString);
-    }
-  }));
+  return res;
 }
 
-export function logout() {
-  return new Promise(((resolve, reject) => {
-    cortexFetch('/oauth2/tokens', {
-      method: 'delete',
-    }).then((res) => {
-      localStorage.removeItem(`${Config.cortexApi.scope}_oAuthRole`);
-      localStorage.removeItem(`${Config.cortexApi.scope}_oAuthScope`);
-      localStorage.removeItem(`${Config.cortexApi.scope}_oAuthToken`);
-      localStorage.removeItem(`${Config.cortexApi.scope}_oAuthUserName`);
-      resolve(res);
-    }).catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error(error.message);
-      reject(error);
-    });
-  }));
+export async function logout() {
+  await cortexFetchAsync('/oauth2/tokens', {
+    method: 'delete',
+    ignoreErrors: true,
+    parseJson: false,
+  });
+
+  localStorage.removeItem(`${Config.cortexApi.scope}_oAuthRole`);
+  localStorage.removeItem(`${Config.cortexApi.scope}_oAuthScope`);
+  localStorage.removeItem(`${Config.cortexApi.scope}_oAuthToken`);
+  localStorage.removeItem(`${Config.cortexApi.scope}_oAuthUserName`);
 }
 
-export function getRegistrationForm() {
-  return new Promise(((resolve, reject) => {
-    cortexFetch('/?zoom=newaccountform',
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: localStorage.getItem(`${Config.cortexApi.scope}_oAuthToken`),
-        },
-      })
-      .then(res => res.json())
-      .then((res) => {
-        const registrationLink = res.links.find(link => link.rel === 'newaccountform');
-        newaccountform = registrationLink.uri;
-        resolve(registrationLink.uri);
-      })
-      .catch((error) => {
-        // eslint-disable-next-line no-console
-        console.error(error.message);
-        reject(error);
-      });
-  }));
-}
+export async function registerUser(lastname, firstname, username, password) {
+  const regFormRes = await cortexFetchAsync('/?zoom=newaccountform', {});
+  const regLink = regFormRes.parsedJson.links.find(link => link.rel === 'newaccountform').uri;
 
-export function registerUser(lastname, firstname, username, password) {
-  return new Promise(((resolve, reject) => {
-    cortexFetch(newaccountform, {
-      method: 'post',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: localStorage.getItem(`${Config.cortexApi.scope}_oAuthToken`),
-      },
-      body: JSON.stringify({
-        'family-name': lastname, 'given-name': firstname, username, password,
-      }),
-    }).then((res) => {
-      resolve(res);
-    }).catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error(error.message);
-      reject(error);
-    });
-  }));
+  await cortexFetchAsync(regLink, {
+    method: 'post',
+    body: {
+      'family-name': lastname,
+      'given-name': firstname,
+      username,
+      password,
+    },
+  });
+
+  await loginRegistered(username, password);
 }

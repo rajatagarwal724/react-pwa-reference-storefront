@@ -24,7 +24,92 @@ import mockFetch from './Mock';
 
 const Config = require('Config');
 
-export async function cortexFetchAsync() {
+function generateFormBody(payload) {
+  return Object.keys(payload)
+    .map(key => `${key}=${payload[key]}`)
+    .join('&');
+}
+
+export async function cortexFetchAsync(path, options) {
+  const opts = {
+    ...{
+      method: 'get',
+      useAuth: true,
+      useLocale: true,
+      urlEncoded: false,
+      parseJson: true,
+      ignoreErrors: false,
+      headers: {},
+    },
+    ...options,
+  };
+
+  const headers = {
+    'Content-Type': opts.urlEncoded ? 'application/x-www-form-urlencoded;charset=utf-8' : 'application/json',
+  };
+
+  let body;
+  if (opts.body) {
+    body = opts.urlEncoded ? generateFormBody(opts.body) : JSON.stringify(opts.body);
+  }
+
+  if (opts.useAuth) {
+    if (!opts.headers.Authorization && !localStorage.getItem(`${Config.cortexApi.scope}_oAuthToken`)) {
+      const res = await cortexFetchAsync('/oauth2/tokens', {
+        method: 'post',
+        useAuth: false,
+        urlEncoded: true,
+        useLocale: false,
+        body: {
+          username: '',
+          password: '',
+          grant_type: 'password',
+          role: 'PUBLIC',
+          scope: Config.cortexApi.scope,
+        },
+      });
+
+      localStorage.setItem(`${Config.cortexApi.scope}_oAuthRole`, res.parsedJson.role);
+      localStorage.setItem(`${Config.cortexApi.scope}_oAuthScope`, res.parsedJson.scope);
+      localStorage.setItem(`${Config.cortexApi.scope}_oAuthToken`, `Bearer ${res.parsedJson.access_token}`);
+      localStorage.setItem(`${Config.cortexApi.scope}_oAuthUserName`, '');
+    }
+
+    headers.Authorization = localStorage.getItem(`${Config.cortexApi.scope}_oAuthToken`);
+  }
+
+  if (opts.useLocale) {
+    headers['x-ep-user-traits'] = `LOCALE=${UserPrefs.getSelectedLocaleValue()}, CURRENCY=${UserPrefs.getSelectedCurrencyValue()}`;
+  }
+
+  const init = {
+    method: opts.method,
+    headers: {
+      ...headers,
+      ...opts.headers,
+    },
+    body,
+  };
+
+  const res = await fetch(`${Config.cortexApi.path + path}`, init);
+
+  if (opts.parseJson && res.headers.get('content-type') === 'application/json') {
+    res.parsedText = await res.text();
+
+    if (res.parsedText) {
+      res.parsedJson = JSON.parse(res.parsedText);
+    }
+  }
+
+  res.isOK = res.status >= 200 && res.status < 300;
+
+  if (!opts.ignoreErrors && !res.isOK) {
+    const err = new Error(`Got response ${res.status} while calling ${path}`);
+    err.res = res;
+    throw err;
+  }
+
+  return res;
 }
 
 export function cortexFetch(input, init) {

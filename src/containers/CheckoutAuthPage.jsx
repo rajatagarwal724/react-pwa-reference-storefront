@@ -66,13 +66,13 @@ class CheckoutAuthPage extends React.Component {
     const { username, password } = this.state;
     const { history } = this.props;
     if (localStorage.getItem(`${Config.cortexApi.scope}_oAuthRole`) === 'PUBLIC') {
-      loginRegistered(username, password).then((resStatus) => {
-        if (resStatus === 401) {
+      loginRegistered(username, password).then((res) => {
+        if (res.status === 401) {
           this.setState({ failedLogin: true });
         }
-        if (resStatus === 400) {
+        if (res.status === 400) {
           this.setState({ failedLogin: true });
-        } else if (resStatus === 200) {
+        } else if (res.status === 200) {
           this.setState({ failedLogin: false }, () => {
             history.push('/checkout');
           });
